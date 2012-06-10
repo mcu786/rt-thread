@@ -1153,33 +1153,67 @@ int vsprintf(char *buf, const char *format, va_list arg_ptr) __attribute__((weak
 #ifdef RT_USING_HEAP_SORT
 void rt_heap_heapify(rt_heap_t *heap, rt_size_t i)
 {
-	rt_size_t l, r, soonest;
-    RT_ASSERT(heap);
+	rt_size_t l, r, best_i;
+	rt_heap_node_t *node, *best_node;
+	RT_ASSERT(heap);
 
-	l = RT_HEAP_LEFT(i);
-	r = RT_HEAP_RIGHT(i);
-	if (l <= heap->size && heap->cmp(RT_HEAP_NODE(heap, l), RT_HEAP_NODE(heap, i)))
-		soonest = l;
-	else
-		soonest = i;
-	if (r <= heap->size && heap->cmp(RT_HEAP_NODE(heap, r), RT_HEAP_NODE(heap, soonest)))
-		soonest = r;
-	if (soonest != i)
+	node = RT_HEAP_NODE(heap, i);
+	while(1)
 	{
-		rt_heap_exchange(heap, i, soonest);
-		rt_heap_heapify(heap, soonest);
+		l = RT_HEAP_LEFT(i);
+		r = RT_HEAP_RIGHT(i);
+		best_i = i;
+		if (l <= heap->size)
+		{
+			rt_heap_node_t *node_l = RT_HEAP_NODE(heap, l);
+			if (heap->cmp(node_l, node))
+			{
+				best_i = l;
+				best_node = node_l;
+			}
+			else
+			{
+				best_i = i;
+				best_node = node;
+			}
+		}
+		if (r <= heap->size)
+		{
+			rt_heap_node_t *node_r = RT_HEAP_NODE(heap, r);
+			if (heap->cmp(node_r, best_node))
+			{
+				best_i = r;
+				best_node = node_r;
+			}
+		}
+
+		if (best_i != i)
+		{
+			// exchange best node and current node
+			RT_HEAP_NODE(heap, i) = best_node;
+			best_node->i = i;
+			i = best_i;
+		}
+		else
+		{
+			break;
+		}
 	}
+	RT_HEAP_NODE(heap, i) = node;
+	node->i = i;
 }
 
 rt_heap_node_t *rt_heap_extract_top(rt_heap_t *heap)
 {
 	rt_heap_node_t *node;
-    RT_ASSERT(heap);
+	RT_ASSERT(heap);
 
 	if (heap->size < 1)
 		return RT_NULL;
 
 	node = rt_heap_top(heap);
+	node->heap = RT_NULL;
+	node->i = (rt_size_t)-1;
 	RT_HEAP_NODE(heap, 1) = RT_HEAP_NODE(heap, heap->size);
 	RT_HEAP_NODE(heap, heap->size) = RT_NULL;
 	heap->size--;
@@ -1187,22 +1221,37 @@ rt_heap_node_t *rt_heap_extract_top(rt_heap_t *heap)
 	return node;
 }
 
-void rt_heap_reset_key(rt_heap_t *heap, rt_size_t *i)
+void rt_heap_modify(rt_heap_t *heap, rt_size_t i)
 {
-    RT_ASSERT(heap && i);
-
-	while (*i > 1 && heap->cmp(RT_HEAP_NODE(heap, *i), RT_HEAP_NODE(heap, RT_HEAP_PARENT(*i))))
+	RT_ASSERT(heap);
+	rt_heap_node_t *node = RT_HEAP_NODE(heap, i);
+	rt_bool_t is_up = RT_FALSE;
+	while (i > 1)
 	{
-		rt_heap_exchange(heap, *i, RT_HEAP_PARENT(*i));
-		*i = RT_HEAP_PARENT(*i);
+		rt_size_t p = RT_HEAP_PARENT(i);
+		rt_heap_node_t *node_p = RT_HEAP_NODE(heap, p);
+		if(heap->cmp(node, node_p))
+		{
+			RT_HEAP_NODE(heap, i) = node_p;
+			i = p;
+			is_up = RT_TRUE;
+		}
+		else
+		{
+			break;
+		}
 	}
-	rt_heap_heapify(heap, *i);
+	RT_HEAP_NODE(heap, i) = node;
+	if (!is_up)
+		rt_heap_heapify(heap, i);
+	else
+		node->i = i;
 }
 
 rt_err_t rt_heap_insert(rt_heap_t *heap, rt_heap_node_t *node)
 {
 	rt_size_t i, p;
-    RT_ASSERT(heap && node);
+	RT_ASSERT(heap && node);
 
 	if (heap->size == heap->max)
 		return -RT_EFULL;
@@ -1210,9 +1259,8 @@ rt_err_t rt_heap_insert(rt_heap_t *heap, rt_heap_node_t *node)
 	i = heap->size + 1;
 	RT_HEAP_NODE(heap, i) = node;
 	heap->size += 1;
-	rt_heap_reset_key(heap, &i);
+	rt_heap_modify(heap, i);
 	node->heap = heap;
-	node->i = i;
 	return -RT_EOK;
 }
 
@@ -1221,7 +1269,7 @@ rt_err_t rt_heap_remove(rt_heap_node_t *node)
 	rt_heap_t *heap = node->heap;
 	rt_size_t i = node->i;
 
-    RT_ASSERT(node);
+	RT_ASSERT(node);
 	if (heap == RT_NULL || i > heap->size)
 		return -RT_ERROR;
 
@@ -1230,7 +1278,7 @@ rt_err_t rt_heap_remove(rt_heap_node_t *node)
 		rt_heap_exchange(heap, i, heap->size);
 		heap->nodes[heap->size] = RT_NULL;
 		heap->size -= 1;
-		rt_heap_reset_key(heap, &i);
+		rt_heap_modify(heap, i);
 	}
 	else
 	{
