@@ -100,6 +100,49 @@ rt_inline int rt_list_isempty(const rt_list_t *l)
 #define rt_list_entry(node, type, member) \
     ((type *)((char *)(node) - (unsigned long)(&((type *)0)->member)))
 
+#ifdef RT_USING_HEAP_SORT
+
+#define RT_HEAP_PARENT(i)	((i) / 2)
+#define RT_HEAP_LEFT(i) 	(2 * (i))
+#define RT_HEAP_RIGHT(i)	(2 * (i) + 1)
+#define RT_HEAP_NODE(h,i)	(h->nodes[(i)-1])
+
+#define rt_heap_entry rt_list_entry
+
+rt_inline void rt_heap_init(rt_heap_t *heap)
+{
+	heap->size = 0;
+}
+
+rt_inline void rt_heap_node_init(rt_heap_node_t *node)
+{
+    node->heap = RT_NULL;
+    node->i = (rt_size_t)-1;
+}
+rt_inline void rt_heap_exchange(rt_heap_t *heap, rt_size_t i, rt_size_t j)
+{
+	rt_heap_node_t *temp;
+    RT_ASSERT(heap);
+
+    temp = RT_HEAP_NODE(heap, i);
+	RT_HEAP_NODE(heap, i) = RT_HEAP_NODE(heap, j);
+	RT_HEAP_NODE(heap, j) = temp;
+	RT_HEAP_NODE(heap, i)->i = i;
+	RT_HEAP_NODE(heap, j)->i = j;
+}
+
+rt_inline rt_heap_node_t *rt_heap_top(rt_heap_t *heap)
+{
+    RT_ASSERT(heap);
+
+	if (heap->size)
+		return RT_HEAP_NODE(heap, 1);
+	else
+		return RT_NULL;
+}
+
+#endif
+
 /*@}*/
 
 #ifdef __cplusplus

@@ -195,6 +195,24 @@ struct rt_list_node
 };
 typedef struct rt_list_node rt_list_t;                  /* Type for lists.     */
 
+#ifdef RT_USING_HEAP_SORT
+typedef struct rt_heap_node
+{
+	struct rt_heap *heap;
+	rt_size_t i;
+} rt_heap_node_t;
+
+typedef rt_bool_t (*rt_heap_cmp_func_t)(rt_heap_node_t *, rt_heap_node_t *);
+
+typedef struct rt_heap
+{
+	rt_heap_node_t **nodes;
+	rt_size_t max;
+	rt_size_t size;
+	rt_heap_cmp_func_t cmp;
+} rt_heap_t;
+#endif
+
 /**
  * @addtogroup KernelObject
  */
@@ -325,8 +343,11 @@ struct rt_timer
 {
     struct rt_object parent;                            /**< inherit from rt_object                 */
 
+    /* always keep list for rt_object compatibility */
     rt_list_t list;                                     /**< the node of timer list                 */
-
+#ifdef RT_USING_HEAP_SORT
+    rt_heap_node_t heap;
+#endif
     void (*timeout_func)(void *parameter);              /**< timeout function                       */
     void *parameter;                                    /**< timeout function's parameter           */
 

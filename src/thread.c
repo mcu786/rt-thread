@@ -49,7 +49,11 @@ static void rt_thread_exit(void)
 	thread->stat = RT_THREAD_CLOSE;
 
 	/* remove it from timer list */
+#ifdef RT_USING_HEAP_SORT    
+	rt_heap_remove(&thread->thread_timer.heap);
+#else
 	rt_list_remove(&(thread->thread_timer.list));
+#endif
 	rt_object_detach((rt_object_t)&(thread->thread_timer));
 
 	if ((rt_object_is_systemobject((rt_object_t)thread) == RT_TRUE) &&
@@ -572,7 +576,11 @@ rt_err_t rt_thread_resume(rt_thread_t thread)
 	rt_list_remove(&(thread->tlist));
 
 	/* remove thread timer */
+#ifdef RT_USING_HEAP_SORT
+	rt_heap_remove(&thread->thread_timer.heap);
+#else
 	rt_list_remove(&(thread->thread_timer.list));
+#endif
 
 	/* change timer state */
 	thread->thread_timer.parent.flag &= ~RT_TIMER_FLAG_ACTIVATED;

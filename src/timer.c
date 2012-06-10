@@ -22,12 +22,34 @@
 #include <rtthread.h>
 #include <rthw.h>
 
+#ifdef RT_USING_HEAP_SORT
+rt_bool_t rt_timer_cmp(rt_heap_node_t *a, rt_heap_node_t *b)
+{
+	rt_timer_t timer_a = rt_heap_entry(a, struct rt_timer, heap);
+	rt_timer_t timer_b = rt_heap_entry(b, struct rt_timer, heap);
+
+	return (timer_a->timeout_tick - timer_b->timeout_tick < RT_TICK_MAX / 2);
+}
+
+/* hard timr heap */
+#define RT_TIMER_MAX   256
+static rt_heap_node_t *rt_timer_nodes[RT_TIMER_MAX];
+rt_heap_t rt_timer_heap = {rt_timer_nodes, RT_TIMER_MAX, 0, rt_timer_cmp};
+#else
 /* hard timer list */
 static rt_list_t rt_timer_list = RT_LIST_OBJECT_INIT(rt_timer_list);
+#endif
 
 #ifdef RT_USING_TIMER_SOFT
+#ifdef RT_USING_HEAP_SORT
+/* soft timer heap */
+#define RT_SOFT_TIMER_MAX	256
+static rt_heap_node_t *rt_soft_timer_nodes[RT_TIMER_MAX];
+rt_heap_t rt_soft_timer_heap = {rt_soft_timer_nodes, RT_SOFT_TIMER_MAX, 0, rt_timer_cmp};
+#else
 /* soft timer list */
 static rt_list_t rt_soft_timer_list;
+#endif
 static struct rt_thread timer_thread;
 ALIGN(RT_ALIGN_SIZE)
 static rt_uint8_t timer_thread_stack[RT_TIMER_THREAD_STACK_SIZE];
@@ -75,9 +97,26 @@ static void _rt_timer_init(rt_timer_t timer,
 	timer->init_tick    = time;
 
 	/* initialize timer list */
+#ifdef RT_USING_HEAP_SORT
+    rt_heap_node_init(&timer->heap);
+#else
 	rt_list_init(&(timer->list));
+#endif
 }
 
+#ifdef RT_USING_HEAP_SORT
+static rt_tick_t rt_timer_heap_next_timeout(rt_heap_t *timer_heap)
+{
+	struct rt_timer *timer;
+	rt_heap_node_t *node = rt_heap_top(timer_heap);
+
+	if (node == RT_NULL)
+		return RT_TICK_MAX;
+	timer = rt_heap_entry(node, struct rt_timer, heap);
+
+	return timer->timeout_tick;
+}
+#else
 static rt_tick_t rt_timer_list_next_timeout(rt_list_t *timer_list)
 {
 	struct rt_timer *timer;
@@ -89,6 +128,7 @@ static rt_tick_t rt_timer_list_next_timeout(rt_list_t *timer_list)
 
 	return timer->timeout_tick;
 }
+#endif
 
 /**
  * @addtogroup Clock
@@ -138,9 +178,12 @@ rt_err_t rt_timer_detach(rt_timer_t timer)
 	/* disable interrupt */
 	level = rt_hw_interrupt_disable();
 
+#ifdef RT_USING_HEAP_SORT
+	rt_heap_remove(&timer->heap);
+#else
 	/* remove it from timer list */
 	rt_list_remove(&(timer->list));
-
+#endif
 	/* enable interrupt */
 	rt_hw_interrupt_enable(level);
 
@@ -194,9 +237,12 @@ rt_err_t rt_timer_delete(rt_timer_t timer)
 
 	/* disable interrupt */
 	level = rt_hw_interrupt_disable();
-
+#ifdef RT_USING_HEAP_SORT
+	rt_heap_remove(&timer->heap);
+#else
 	/* remove it from timer list */
 	rt_list_remove(&(timer->list));
+#endif
 
 	/* enable interrupt */
 	rt_hw_interrupt_enable(level);
@@ -218,7 +264,11 @@ rt_err_t rt_timer_start(rt_timer_t timer)
 {
 	struct rt_timer *t;
 	register rt_base_t level;
+#ifdef RT_USING_HEAP_SORT
+	rt_heap_t *timer_heap;
+#else
 	rt_list_t *n, *timer_list;
+#endif
 
 	/* timer check */
 	RT_ASSERT(timer != RT_NULL);
@@ -237,16 +287,27 @@ rt_err_t rt_timer_start(rt_timer_t timer)
 #ifdef RT_USING_TIMER_SOFT
 	if (timer->parent.flag & RT_TIMER_FLAG_SOFT_TIMER)
 	{
+	#ifdef RT_USING_HEAP_SORT
+		timer_heap = &rt_soft_timer_heap;
+	#else
 		/* insert timer to soft timer list */
 		timer_list = &rt_soft_timer_list;
+	#endif
 	}
 	else
 #endif
 	{
+	#ifdef RT_USING_HEAP_SORT
+		timer_heap = &rt_timer_heap;
+	#else
 		/* insert timer to system timer list */
 		timer_list = &rt_timer_list;
+	#endif
 	}
 
+#ifdef RT_USING_HEAP_SORT
+	rt_heap_insert(timer_heap, &timer->heap);
+#else
 	for (n = timer_list->next; n != timer_list; n = n->next)
 	{
 		t = rt_list_entry(n, struct rt_timer, list);
@@ -266,7 +327,7 @@ rt_err_t rt_timer_start(rt_timer_t timer)
 	{
 		rt_list_insert_before(n, &(timer->list));
 	}
-
+#endif
 	timer->parent.flag |= RT_TIMER_FLAG_ACTIVATED;
 
 	/* enable interrupt */
@@ -309,8 +370,12 @@ rt_err_t rt_timer_stop(rt_timer_t timer)
 	/* disable interrupt */
 	level = rt_hw_interrupt_disable();
 
+#ifdef RT_USING_HEAP_SORT
+	rt_heap_remove(&timer->heap);
+#else
 	/* remove it from timer list */
 	rt_list_remove(&(timer->list));
+#endif
 
 	/* enable interrupt */
 	rt_hw_interrupt_enable(level);
@@ -376,10 +441,15 @@ void rt_timer_check(void)
 	/* disable interrupt */
 	level = rt_hw_interrupt_disable();
 
+#ifdef RT_USING_HEAP_SORT
+	while(rt_timer_heap.size > 0)
+	{
+		t = rt_heap_entry(rt_heap_top(&rt_timer_heap), struct rt_timer, heap);
+#else
 	while (!rt_list_isempty(&rt_timer_list))
 	{
 		t = rt_list_entry(rt_timer_list.next, struct rt_timer, list);
-
+#endif
 		/*
 		 * It supposes that the new tick shall less than the half duration of
 		 * tick max.
@@ -389,7 +459,11 @@ void rt_timer_check(void)
 			RT_OBJECT_HOOK_CALL(rt_timer_timeout_hook, (t));
 
 			/* remove timer from timer list firstly */
+#ifdef RT_USING_HEAP_SORT
+			rt_heap_remove(&t->heap);
+#else
 			rt_list_remove(&(t->list));
+#endif
 
 			/* call timeout function */
 			t->timeout_func(t->parameter);
@@ -429,7 +503,11 @@ void rt_timer_check(void)
  */
 rt_tick_t rt_timer_next_timeout_tick(void)
 {
+#ifdef RT_USING_HEAP_SORT
+	return rt_timer_heap_next_timeout(&rt_timer_heap);
+#else
 	return rt_timer_list_next_timeout(&rt_timer_list);
+#endif
 }
 
 #ifdef RT_USING_TIMER_SOFT
@@ -447,10 +525,15 @@ void rt_soft_timer_check(void)
 
 	current_tick = rt_tick_get();
 
+#ifdef RT_USING_HEAP_SORT
+	while(rt_timer_heap.size > 0)
+	{
+		t = rt_heap_entry(rt_heap_top(&rt_timer_heap), struct rt_timer, heap);
+#else
 	for (n = rt_soft_timer_list.next; n != &(rt_soft_timer_list);)
 	{
 		t = rt_list_entry(n, struct rt_timer, list);
-
+#endif
 		/*
 		 * It supposes that the new tick shall less than the half duration of
 		 * tick max.
@@ -462,8 +545,12 @@ void rt_soft_timer_check(void)
 			/* move node to the next */
 			n = n->next;
 
+#ifdef RT_USING_HEAP_SORT
+			rt_heap_remove(&t->heap);
+#else
 			/* remove timer from timer list firstly */
 			rt_list_remove(&(t->list));
+#endif
 
 			/* call timeout function */
 			t->timeout_func(t->parameter);
@@ -499,7 +586,11 @@ static void rt_thread_timer_entry(void *parameter)
 	
 	while (1)
 	{
+	#ifdef RT_USING_HEAP_SORT
+		next_timeout = rt_timer_heap_next_timeout(&rt_soft_timer_heap);
+	#else
 		next_timeout = rt_timer_list_next_timeout(&rt_soft_timer_list);
+	#endif
 		if (next_timeout == RT_TICK_MAX)
 		{
 			rt_thread_suspend(rt_thread_self());
@@ -540,7 +631,11 @@ void rt_system_timer_init(void)
 void rt_system_timer_thread_init(void)
 {
 #ifdef RT_USING_TIMER_SOFT
+#ifdef RT_USING_HEAP_SORT
+	rt_heap_init(&rt_soft_timer_heap);
+#else
 	rt_list_init(&rt_soft_timer_list);
+#endif
 
 	/* start software timer thread */
 	rt_thread_init(&timer_thread,

@@ -1150,4 +1150,97 @@ int vsprintf(char *buf, const char *format, va_list arg_ptr) __attribute__((weak
 
 #endif
 
+#ifdef RT_USING_HEAP_SORT
+void rt_heap_heapify(rt_heap_t *heap, rt_size_t i)
+{
+	rt_size_t l, r, soonest;
+    RT_ASSERT(heap);
+
+	l = RT_HEAP_LEFT(i);
+	r = RT_HEAP_RIGHT(i);
+	if (l <= heap->size && heap->cmp(RT_HEAP_NODE(heap, l), RT_HEAP_NODE(heap, i)))
+		soonest = l;
+	else
+		soonest = i;
+	if (r <= heap->size && heap->cmp(RT_HEAP_NODE(heap, r), RT_HEAP_NODE(heap, soonest)))
+		soonest = r;
+	if (soonest != i)
+	{
+		rt_heap_exchange(heap, i, soonest);
+		rt_heap_heapify(heap, soonest);
+	}
+}
+
+rt_heap_node_t *rt_heap_extract_top(rt_heap_t *heap)
+{
+	rt_heap_node_t *node;
+    RT_ASSERT(heap);
+
+	if (heap->size < 1)
+		return RT_NULL;
+
+	node = rt_heap_top(heap);
+	RT_HEAP_NODE(heap, 1) = RT_HEAP_NODE(heap, heap->size);
+	RT_HEAP_NODE(heap, heap->size) = RT_NULL;
+	heap->size--;
+	rt_heap_heapify(heap, 1);
+	return node;
+}
+
+void rt_heap_reset_key(rt_heap_t *heap, rt_size_t *i)
+{
+    RT_ASSERT(heap && i);
+
+	while (*i > 1 && heap->cmp(RT_HEAP_NODE(heap, *i), RT_HEAP_NODE(heap, RT_HEAP_PARENT(*i))))
+	{
+		rt_heap_exchange(heap, *i, RT_HEAP_PARENT(*i));
+		*i = RT_HEAP_PARENT(*i);
+	}
+	rt_heap_heapify(heap, *i);
+}
+
+rt_err_t rt_heap_insert(rt_heap_t *heap, rt_heap_node_t *node)
+{
+	rt_size_t i, p;
+    RT_ASSERT(heap && node);
+
+	if (heap->size == heap->max)
+		return -RT_EFULL;
+
+	i = heap->size + 1;
+	RT_HEAP_NODE(heap, i) = node;
+	heap->size += 1;
+	rt_heap_reset_key(heap, &i);
+	node->heap = heap;
+	node->i = i;
+	return -RT_EOK;
+}
+
+rt_err_t rt_heap_remove(rt_heap_node_t *node)
+{
+	rt_heap_t *heap = node->heap;
+	rt_size_t i = node->i;
+
+    RT_ASSERT(node);
+	if (heap == RT_NULL || i > heap->size)
+		return -RT_ERROR;
+
+	if (i != heap->size)
+	{
+		rt_heap_exchange(heap, i, heap->size);
+		heap->nodes[heap->size] = RT_NULL;
+		heap->size -= 1;
+		rt_heap_reset_key(heap, &i);
+	}
+	else
+	{
+		heap->nodes[heap->size] = RT_NULL;
+		heap->size -= 1;
+	}
+	node->heap = RT_NULL;
+	node->i = (rt_size_t)-1;
+	return -RT_EOK;
+}
+#endif
+
 /*@}*/
