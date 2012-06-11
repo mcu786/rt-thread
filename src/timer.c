@@ -28,7 +28,7 @@ rt_bool_t rt_timer_cmp(rt_heap_node_t *a, rt_heap_node_t *b)
 	rt_timer_t timer_a = rt_heap_entry(a, struct rt_timer, heap);
 	rt_timer_t timer_b = rt_heap_entry(b, struct rt_timer, heap);
 
-	return (timer_a->timeout_tick - timer_b->timeout_tick < RT_TICK_MAX / 2);
+	return (timer_a->timeout_tick - timer_b->timeout_tick >= RT_TICK_MAX / 2);
 }
 
 /* hard timr heap */
