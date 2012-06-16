@@ -125,18 +125,6 @@ rt_inline void rt_heap_node_clear(rt_heap_node_t *node)
 	rt_heap_node_init(node);
 }
 
-rt_inline void rt_heap_exchange(rt_heap_t *heap, rt_size_t i, rt_size_t j)
-{
-	rt_heap_node_t *temp;
-    RT_ASSERT(heap);
-
-    temp = RT_HEAP_NODE(heap, i);
-	RT_HEAP_NODE(heap, i) = RT_HEAP_NODE(heap, j);
-	RT_HEAP_NODE(heap, j) = temp;
-	RT_HEAP_NODE(heap, i)->i = i;
-	RT_HEAP_NODE(heap, j)->i = j;
-}
-
 rt_inline rt_heap_node_t *rt_heap_top(rt_heap_t *heap)
 {
     RT_ASSERT(heap);
