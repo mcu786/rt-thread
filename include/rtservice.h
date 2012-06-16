@@ -116,8 +116,8 @@ rt_inline void rt_heap_init(rt_heap_t *heap)
 
 rt_inline void rt_heap_node_init(rt_heap_node_t *node)
 {
-    node->heap = RT_NULL;
-    node->i = (rt_size_t)-1;
+	node->heap = RT_NULL;
+	node->i = (rt_size_t)-1;
 }
 
 rt_inline void rt_heap_node_clear(rt_heap_node_t *node)
@@ -127,7 +127,7 @@ rt_inline void rt_heap_node_clear(rt_heap_node_t *node)
 
 rt_inline rt_heap_node_t *rt_heap_top(rt_heap_t *heap)
 {
-    RT_ASSERT(heap);
+	RT_ASSERT(heap);
 
 	if (heap->size)
 		return RT_HEAP_NODE(heap, 1);

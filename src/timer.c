@@ -32,7 +32,7 @@ rt_bool_t rt_timer_cmp(rt_heap_node_t *a, rt_heap_node_t *b)
 }
 
 /* hard timr heap */
-#define RT_TIMER_MAX   256
+#define RT_TIMER_MAX	256
 static rt_heap_node_t *rt_timer_nodes[RT_TIMER_MAX];
 rt_heap_t rt_timer_heap = {rt_timer_nodes, RT_TIMER_MAX, 0, rt_timer_cmp};
 #else
@@ -98,7 +98,7 @@ static void _rt_timer_init(rt_timer_t timer,
 
 	/* initialize timer list */
 #ifdef RT_USING_HEAP_SORT
-    rt_heap_node_init(&timer->heap);
+	rt_heap_node_init(&timer->heap);
 #else
 	rt_list_init(&(timer->list));
 #endif

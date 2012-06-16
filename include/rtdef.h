@@ -209,7 +209,7 @@ typedef struct rt_heap
 	rt_heap_node_t **nodes;
 	rt_size_t max;
 	rt_size_t size;
-	rt_heap_cmp_func_t cmp;
+	rt_heap_cmp_func_t is_better;
 } rt_heap_t;
 #endif
 
