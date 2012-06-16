@@ -460,7 +460,7 @@ void rt_timer_check(void)
 
 			/* remove timer from timer list firstly */
 #ifdef RT_USING_HEAP_SORT
-			rt_heap_remove(&t->heap);
+			rt_heap_extract_top(&rt_timer_heap);
 #else
 			rt_list_remove(&(t->list));
 #endif
@@ -526,9 +526,9 @@ void rt_soft_timer_check(void)
 	current_tick = rt_tick_get();
 
 #ifdef RT_USING_HEAP_SORT
-	while(rt_timer_heap.size > 0)
+	while(rt_soft_timer_heap.size > 0)
 	{
-		t = rt_heap_entry(rt_heap_top(&rt_timer_heap), struct rt_timer, heap);
+		t = rt_heap_entry(rt_heap_top(&rt_soft_timer_heap), struct rt_timer, heap);
 #else
 	for (n = rt_soft_timer_list.next; n != &(rt_soft_timer_list);)
 	{
@@ -546,7 +546,7 @@ void rt_soft_timer_check(void)
 			n = n->next;
 
 #ifdef RT_USING_HEAP_SORT
-			rt_heap_remove(&t->heap);
+			rt_heap_extract_top(&rt_soft_timer_heap);
 #else
 			/* remove timer from timer list firstly */
 			rt_list_remove(&(t->list));
