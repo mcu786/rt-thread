@@ -105,7 +105,7 @@ rt_inline int rt_list_isempty(const rt_list_t *l)
 #define RT_HEAP_PARENT(i)	((i) / 2)
 #define RT_HEAP_LEFT(i) 	(2 * (i))
 #define RT_HEAP_RIGHT(i)	(2 * (i) + 1)
-#define RT_HEAP_NODE(h,i)	(h->nodes[(i)-1])
+#define RT_HEAP_NODE(h,i)	((h)->nodes[(i)-1])
 
 #define rt_heap_entry rt_list_entry
 
@@ -119,6 +119,12 @@ rt_inline void rt_heap_node_init(rt_heap_node_t *node)
     node->heap = RT_NULL;
     node->i = (rt_size_t)-1;
 }
+
+rt_inline void rt_heap_node_clear(rt_heap_node_t *node)
+{
+	rt_heap_node_init(node);
+}
+
 rt_inline void rt_heap_exchange(rt_heap_t *heap, rt_size_t i, rt_size_t j)
 {
 	rt_heap_node_t *temp;
