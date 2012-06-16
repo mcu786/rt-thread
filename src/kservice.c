@@ -1218,14 +1218,18 @@ rt_heap_node_t *rt_heap_extract_top(rt_heap_t *heap)
 		return RT_NULL;
 
 	node = rt_heap_top(heap);
-	rt_heap_node_clear(node);
-
-	RT_HEAP_NODE(heap, 1) = RT_HEAP_NODE(heap, size);
-
+	if (size > 1)
+	{
+		RT_HEAP_NODE(heap, 1) = RT_HEAP_NODE(heap, size);
+		RT_HEAP_NODE(heap, 1)->i = 1;
+	}
 	RT_HEAP_NODE(heap, size) = RT_NULL;
 	heap->size -= 1;
 
-	rt_heap_heapify(heap, 1);
+	if (heap->size > 1)
+		rt_heap_heapify(heap, 1);
+
+	rt_heap_node_clear(node);
 	return node;
 }
 
@@ -1249,12 +1253,16 @@ void rt_heap_adjust(rt_heap_t *heap, rt_size_t i)
 			break;
 		}
 	}
-	if (node->i != i)
+
+	if (is_up)
+	{
 		RT_HEAP_NODE(heap, i) = node;
-	if (!is_up)
-		rt_heap_heapify(heap, i);
-	else
 		node->i = i;
+	}
+	else
+	{
+		rt_heap_heapify(heap, i);
+	}
 }
 
 rt_err_t rt_heap_insert(rt_heap_t *heap, rt_heap_node_t *node)
