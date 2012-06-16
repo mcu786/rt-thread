@@ -106,7 +106,6 @@ rt_inline int rt_list_isempty(const rt_list_t *l)
 #define RT_HEAP_LEFT(i) 	(2 * (i))
 #define RT_HEAP_RIGHT(i)	(2 * (i) + 1)
 #define RT_HEAP_NODE(h,i)	((h)->nodes[(i)-1])
-
 #define rt_heap_entry rt_list_entry
 
 rt_inline void rt_heap_init(rt_heap_t *heap)

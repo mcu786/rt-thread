@@ -1151,6 +1151,16 @@ int vsprintf(char *buf, const char *format, va_list arg_ptr) __attribute__((weak
 #endif
 
 #ifdef RT_USING_HEAP_SORT
+#ifdef RT_HEAP_SORT_ONLY_FOR_TIMER
+rt_inline rt_bool_t rt_timer_node_cmp(rt_heap_node_t *a, rt_heap_node_t *b)
+{
+	rt_timer_t timer_a = rt_heap_entry(a, struct rt_timer, heap);
+	rt_timer_t timer_b = rt_heap_entry(b, struct rt_timer, heap);
+
+	return (timer_a->timeout_tick - timer_b->timeout_tick >= RT_TICK_MAX / 2);
+}
+#endif
+
 void rt_heap_heapify(rt_heap_t *heap, rt_size_t i)
 {
 	rt_size_t l, r, best_i, size;
@@ -1167,7 +1177,11 @@ void rt_heap_heapify(rt_heap_t *heap, rt_size_t i)
 		if (l <= size)
 		{
 			rt_heap_node_t *node_l = RT_HEAP_NODE(heap, l);
+#ifdef RT_HEAP_SORT_ONLY_FOR_TIMER
+			if (rt_timer_node_cmp(node_l, node))
+#else
 			if (heap->cmp(node_l, node))
+#endif
 			{
 				best_i = l;
 				best_node = node_l;
@@ -1181,7 +1195,11 @@ void rt_heap_heapify(rt_heap_t *heap, rt_size_t i)
 		if (r <= size)
 		{
 			rt_heap_node_t *node_r = RT_HEAP_NODE(heap, r);
+#ifdef RT_HEAP_SORT_ONLY_FOR_TIMER
+			if (rt_timer_node_cmp(node_r, best_node))
+#else
 			if (heap->cmp(node_r, best_node))
+#endif
 			{
 				best_i = r;
 				best_node = node_r;
@@ -1242,7 +1260,11 @@ void rt_heap_adjust(rt_heap_t *heap, rt_size_t i)
 	{
 		rt_size_t p = RT_HEAP_PARENT(i);
 		rt_heap_node_t *node_p = RT_HEAP_NODE(heap, p);
+#ifdef RT_HEAP_SORT_ONLY_FOR_TIMER
+		if (rt_timer_node_cmp(node, node_p))
+#else
 		if(heap->cmp(node, node_p))
+#endif
 		{
 			RT_HEAP_NODE(heap, i) = node_p;
 			i = p;

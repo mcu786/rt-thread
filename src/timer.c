@@ -23,18 +23,17 @@
 #include <rthw.h>
 
 #ifdef RT_USING_HEAP_SORT
-rt_bool_t rt_timer_cmp(rt_heap_node_t *a, rt_heap_node_t *b)
+rt_bool_t rt_timer_node_cmp(rt_heap_node_t *a, rt_heap_node_t *b)
 {
 	rt_timer_t timer_a = rt_heap_entry(a, struct rt_timer, heap);
 	rt_timer_t timer_b = rt_heap_entry(b, struct rt_timer, heap);
 
 	return (timer_a->timeout_tick - timer_b->timeout_tick >= RT_TICK_MAX / 2);
 }
-
 /* hard timr heap */
 #define RT_TIMER_MAX   256
 static rt_heap_node_t *rt_timer_nodes[RT_TIMER_MAX];
-rt_heap_t rt_timer_heap = {rt_timer_nodes, RT_TIMER_MAX, 0, rt_timer_cmp};
+rt_heap_t rt_timer_heap = {rt_timer_nodes, RT_TIMER_MAX, 0, rt_timer_node_cmp};
 #else
 /* hard timer list */
 static rt_list_t rt_timer_list = RT_LIST_OBJECT_INIT(rt_timer_list);
@@ -45,7 +44,7 @@ static rt_list_t rt_timer_list = RT_LIST_OBJECT_INIT(rt_timer_list);
 /* soft timer heap */
 #define RT_SOFT_TIMER_MAX	256
 static rt_heap_node_t *rt_soft_timer_nodes[RT_TIMER_MAX];
-rt_heap_t rt_soft_timer_heap = {rt_soft_timer_nodes, RT_SOFT_TIMER_MAX, 0, rt_timer_cmp};
+rt_heap_t rt_soft_timer_heap = {rt_soft_timer_nodes, RT_SOFT_TIMER_MAX, 0, rt_timer_node_cmp};
 #else
 /* soft timer list */
 static rt_list_t rt_soft_timer_list;
