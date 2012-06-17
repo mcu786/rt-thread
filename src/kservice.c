@@ -1151,7 +1151,20 @@ int vsprintf(char *buf, const char *format, va_list arg_ptr) __attribute__((weak
 #endif
 
 #ifdef RT_USING_HEAP_SORT
-void rt_heap_heapify(rt_heap_t *heap, rt_size_t i)
+
+#define RT_HEAP_PARENT(i)	((i) / 2)
+#define RT_HEAP_LEFT(i) 	(2 * (i))
+#define RT_HEAP_RIGHT(i)	(2 * (i) + 1)
+
+/**
+ * The heap is already sorted except for the specified node.
+ * The node could be at top or already adjusted to highest position, but might be worse than its children.
+ *
+ * @param heap the target heap
+ * @param i index of the node to heapify from
+ *
+ */
+static void rt_heap_heapify(rt_heap_t *heap, rt_size_t i)
 {
 	rt_size_t l, r, best_i;
 	rt_heap_node_t *node;
@@ -1182,7 +1195,15 @@ void rt_heap_heapify(rt_heap_t *heap, rt_size_t i)
 	node->i = i;
 }
 
-void rt_heap_adjust(rt_heap_t *heap, rt_size_t i)
+/**
+ * The heap is already sorted except for the specified node.
+ * The key value of the node is adjusted, so its position should be adjusted, either higher or lower
+ *
+ * @param heap the target heap
+ * @param i index of the adjusted node
+ *
+ */
+static void rt_heap_adjust(rt_heap_t *heap, rt_size_t i)
 {
 	rt_heap_node_t *node;
 	rt_bool_t adjusted;
@@ -1198,7 +1219,7 @@ void rt_heap_adjust(rt_heap_t *heap, rt_size_t i)
 		{
 			// move parent node to current position
 			RT_HEAP_NODE(heap, i) = RT_HEAP_NODE(heap, p);
-			RT_HEAP_NODE(heap, i) = i;
+			RT_HEAP_NODE(heap, i)->i = i;
 			// continue adjusting on the vacancy
 			i = p;
 			adjusted = RT_TRUE;
@@ -1216,6 +1237,13 @@ void rt_heap_adjust(rt_heap_t *heap, rt_size_t i)
 		rt_heap_heapify(heap, i);
 }
 
+/**
+ * Insert a new node to the heap and heapify the heap
+ *
+ * @param heap the target heap
+ * @param node the node to insert
+ *
+ */
 rt_err_t rt_heap_insert(rt_heap_t *heap, rt_heap_node_t *node)
 {
 	rt_size_t i, p;
@@ -1234,12 +1262,14 @@ rt_err_t rt_heap_insert(rt_heap_t *heap, rt_heap_node_t *node)
 		rt_size_t p = RT_HEAP_PARENT(i);
 		if(heap->is_better(node, RT_HEAP_NODE(heap, p)))
 		{
-			// move parent node to current position
+			/* move parent node to current position */
 			RT_HEAP_NODE(heap, i) = RT_HEAP_NODE(heap, p);
-			RT_HEAP_NODE(heap, i) = i;
-			// continue adjusting on the vacancy
+			RT_HEAP_NODE(heap, i)->i = i;
+			/* continue adjusting on the vacancy */
 			i = p;
-		} else {
+		}
+		else
+		{
 			break;
 		}
 	}
@@ -1249,6 +1279,39 @@ rt_err_t rt_heap_insert(rt_heap_t *heap, rt_heap_node_t *node)
 	return -RT_EOK;
 }
 
+/**
+ * Clear the node content
+ *
+ * @param node the node to be cleared
+ *
+ */
+rt_inline void rt_heap_node_clear(rt_heap_node_t *node)
+{
+	RT_ASSERT(node);
+	node->heap = RT_NULL;
+	node->i = (rt_size_t)-1;
+}
+
+/**
+ * Remove the tail node from heap
+ *
+ * @param heap the target heap
+ *
+ */
+rt_inline void rt_heap_remove_tail(rt_heap_t *heap)
+{
+	RT_ASSERT(heap && heap->size);
+	RT_HEAP_NODE(heap, heap->size) = RT_NULL;
+	heap->size -= 1;
+}
+
+/**
+ * Extract and remove top node and heapify the heap
+ *
+ * @heap node the node to be cleared
+ *
+ * @return the top node if available, RT_NULL if the heap is empty
+ */
 rt_heap_node_t *rt_heap_extract_top(rt_heap_t *heap)
 {
 	rt_heap_node_t *node;
@@ -1259,19 +1322,31 @@ rt_heap_node_t *rt_heap_extract_top(rt_heap_t *heap)
 
 	node = RT_HEAP_NODE(heap, 1);
 
-	// move the tail node to top
-	RT_HEAP_NODE(heap, 1) = RT_HEAP_NODE(heap, heap->size);
-	RT_HEAP_NODE(heap, 1)->i = 1;
-	RT_HEAP_NODE(heap, heap->size) = RT_NULL;
-	heap->size -= 1;
+	if (heap->size == 1)
+	{
+		rt_heap_remove_tail(heap);
+	}
+	else
+	{
+		/* move the tail node to top */
+		RT_HEAP_NODE(heap, 1) = RT_HEAP_NODE(heap, heap->size);
+		RT_HEAP_NODE(heap, 1)->i = 1;
+		rt_heap_remove_tail(heap);
 
-	// heapify from the new top node
-	rt_heap_heapify(heap, 1);
+		/* heapify from the new top node */
+		rt_heap_heapify(heap, 1);
+	}
 
 	rt_heap_node_clear(node);
 	return node;
 }
 
+/**
+ * Remove one node and adjust the heap
+ *
+ * @param node the node to be removed
+ *
+ */
 rt_err_t rt_heap_remove(rt_heap_node_t *node)
 {
 	rt_heap_t *heap;
@@ -1290,16 +1365,16 @@ rt_err_t rt_heap_remove(rt_heap_node_t *node)
 
 	if (i == heap->size)
 	{
-		RT_HEAP_NODE(heap, heap->size) = RT_NULL;
-		heap->size -= 1;
+		rt_heap_remove_tail(heap);
 	}
 	else
 	{
-		// move the tail node to vacancy and adjust it
+		/* move the tail node to vacancy and adjust it */
 		RT_HEAP_NODE(heap, i) = RT_HEAP_NODE(heap, heap->size);
-		RT_HEAP_NODE(heap, i) = i;
-		RT_HEAP_NODE(heap, heap->size) = RT_NULL;
-		heap->size -= 1;
+		RT_HEAP_NODE(heap, i)->i = i;
+		rt_heap_remove_tail(heap);
+
+		/* the tail node could be from different child tree, adjust it instead of heapify */
 		rt_heap_adjust(heap, i);
 	}
 	return -RT_EOK;

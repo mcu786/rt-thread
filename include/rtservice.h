@@ -102,11 +102,11 @@ rt_inline int rt_list_isempty(const rt_list_t *l)
 
 #ifdef RT_USING_HEAP_SORT
 
-#define RT_HEAP_PARENT(i)	((i) / 2)
-#define RT_HEAP_LEFT(i) 	(2 * (i))
-#define RT_HEAP_RIGHT(i)	(2 * (i) + 1)
 #define RT_HEAP_NODE(h,i)	((h)->nodes[(i)-1])
 
+/**
+ * Get the struct for this entry in the same way as rt_list_entry
+ */
 #define rt_heap_entry rt_list_entry
 
 rt_inline void rt_heap_init(rt_heap_t *heap)
@@ -120,20 +120,24 @@ rt_inline void rt_heap_node_init(rt_heap_node_t *node)
 	node->i = (rt_size_t)-1;
 }
 
-rt_inline void rt_heap_node_clear(rt_heap_node_t *node)
-{
-	rt_heap_node_init(node);
-}
-
+/**
+ * Get the top node without removing it from heap
+ *
+ * @param heap the target heap
+ *
+ * @return the top node
+ */
 rt_inline rt_heap_node_t *rt_heap_top(rt_heap_t *heap)
 {
-	RT_ASSERT(heap);
-
 	if (heap->size)
 		return RT_HEAP_NODE(heap, 1);
 	else
 		return RT_NULL;
 }
+
+rt_heap_node_t *rt_heap_extract_top(rt_heap_t *heap);
+rt_err_t rt_heap_insert(rt_heap_t *heap, rt_heap_node_t *node);
+rt_err_t rt_heap_remove(rt_heap_node_t *node);
 
 #endif
 
