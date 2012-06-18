@@ -1322,20 +1322,17 @@ rt_heap_node_t *rt_heap_extract_top(rt_heap_t *heap)
 
 	node = RT_HEAP_NODE(heap, 1);
 
-	if (heap->size == 1)
-	{
-		rt_heap_remove_tail(heap);
-	}
-	else
+	if (heap->size > 1)
 	{
 		/* move the tail node to top */
 		RT_HEAP_NODE(heap, 1) = RT_HEAP_NODE(heap, heap->size);
 		RT_HEAP_NODE(heap, 1)->i = 1;
-		rt_heap_remove_tail(heap);
-
-		/* heapify from the new top node */
-		rt_heap_heapify(heap, 1);
 	}
+	rt_heap_remove_tail(heap);
+
+	/* heapify from the new top node */
+	if (heap->size > 1)
+		rt_heap_heapify(heap, 1);
 
 	rt_heap_node_clear(node);
 	return node;
